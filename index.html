@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Six bandes horizontales — d’après Richard Paul Lohse</title>
+<meta name="description" content="L’œuvre de Richard Paul Lohse et un générateur qui applique son protocole : six bandes horizontales comportant chacune six groupes de couleurs formellement égaux.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --wall: #e9eaeb;
+  --paper: #f6f6f5;
+  --ink: #000000;
+  --soft: #55585c;
+  --hair: #c4c6c9;
+  --frame: #dcdee0;
+  --c0: #d23a2f; --c1: #f0c419; --c2: #1d7fc4; --c3: #24a44a; --c4: #3b2f7a; --c5: #ee7a1c;
+  --sans: "Archivo", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --gap: clamp(20px, 3vw, 48px);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --wall: #17181a;
+    --paper: #1f2023;
+    --ink: #f2f2f0;
+    --soft: #a3a6aa;
+    --hair: #3a3c40;
+    --frame: #2a2b2e;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--wall);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.5;
+  font-variation-settings: "wdth" 100;
+}
+img { max-width: 100%; display: block; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--c2); outline-offset: 3px; }
+
+/* Bande chromatique : la gamme de la dernière variation */
+.chroma { display: grid; grid-template-columns: repeat(6, 1fr); height: 10px; }
+.chroma span { transition: background-color .6s ease; }
+.chroma span:nth-child(1) { background: var(--c0); }
+.chroma span:nth-child(2) { background: var(--c1); }
+.chroma span:nth-child(3) { background: var(--c2); }
+.chroma span:nth-child(4) { background: var(--c3); }
+.chroma span:nth-child(5) { background: var(--c4); }
+.chroma span:nth-child(6) { background: var(--c5); }
+
+.wrap { max-width: 1280px; margin: 0 auto; padding: 0 var(--gap); }
+
+/* En-tête */
+.masthead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--gap);
+  align-items: end;
+  padding: clamp(32px, 6vw, 80px) 0 clamp(24px, 3vw, 36px);
+  border-bottom: 2px solid var(--ink);
+}
+.masthead h1 {
+  margin: 0;
+  font-size: clamp(3rem, 9.5vw, 8.4rem);
+  line-height: .86;
+  font-weight: 800;
+  font-variation-settings: "wdth" 62;
+  letter-spacing: -0.01em;
+}
+.masthead h1 .line2 { display: block; font-variation-settings: "wdth" 125; font-weight: 300; letter-spacing: -0.03em; }
+.artist { text-align: right; font-size: 1.05rem; line-height: 1.3; }
+.artist strong { display: block; font-size: 1.5rem; font-weight: 700; font-variation-settings: "wdth" 85; }
+.artist span { color: var(--soft); }
+
+/* Grille principale */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 640px) minmax(260px, 1fr);
+  gap: calc(var(--gap) * 1.6);
+  padding: var(--gap) 0 calc(var(--gap) * 2);
+  align-items: start;
+}
+.main-col { display: grid; gap: calc(var(--gap) * 2); }
+
+h2 {
+  margin: 0 0 18px;
+  font-size: 1.6rem;
+  line-height: 1.1;
+  font-weight: 700;
+  font-variation-settings: "wdth" 80;
+}
+
+/* Les deux carrés partagent exactement les mêmes dimensions */
+.square {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: var(--frame);
+  overflow: hidden;
+  box-shadow: 0 40px 70px -40px rgba(0, 0, 0, .45);
+}
+.square img, .square svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.square img { object-fit: cover; }
+
+.missing-note, .empty-note {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  padding: 32px; text-align: center;
+  color: var(--soft); font-size: .98rem;
+}
+.missing-note { display: none; }
+.square.missing .missing-note { display: grid; }
+.square.missing img { display: none; }
+.missing-note code { color: var(--ink); font-weight: 600; }
+
+/* Carré vide : la structure du protocole en filigrane */
+#stage:not(.filled) {
+  background:
+    repeating-linear-gradient(to bottom, transparent 0, transparent calc(100% / 6 - 1px), var(--hair) calc(100% / 6 - 1px), var(--hair) calc(100% / 6)),
+    repeating-linear-gradient(to right, transparent 0, transparent calc(100% / 6 - 1px), var(--hair) calc(100% / 6 - 1px), var(--hair) calc(100% / 6)),
+    var(--paper);
+}
+.empty-note p { margin: 0; max-width: 26ch; background: var(--paper); padding: 10px 14px; }
+
+/* Animation de construction : bande par bande */
+#stage svg.build rect {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  animation: lay .6s cubic-bezier(.2, .75, .2, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes lay { from { transform: scaleY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  #stage svg.build rect { animation: none; }
+  .chroma span { transition: none; }
+}
+
+/* Cartels */
+.cartel { margin-top: 22px; display: grid; gap: 4px; max-width: 62ch; }
+.cartel .title { font-size: 1.15rem; font-weight: 700; line-height: 1.25; margin: 0; }
+.cartel .title em { font-style: normal; font-weight: 400; display: block; color: var(--soft); }
+.cartel p { margin: 0; }
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 20px;
+  margin: 14px 0 0;
+  font-size: .95rem;
+}
+.facts dt { color: var(--soft); }
+.facts dd { margin: 0; }
+.facts dd small { display: block; color: var(--soft); font-size: .85rem; font-variant-numeric: tabular-nums; }
+
+blockquote {
+  margin: 28px 0 0;
+  padding: 0 0 0 20px;
+  border-left: 4px solid var(--ink);
+  font-size: 1.3rem;
+  line-height: 1.35;
+  font-weight: 500;
+  font-variation-settings: "wdth" 90;
+  max-width: 34ch;
+}
+blockquote footer { margin-top: 8px; font-size: .95rem; font-weight: 400; color: var(--soft); }
+.prose { max-width: 62ch; margin: 22px 0 0; color: var(--ink); }
+.prose + .prose { margin-top: 12px; }
+
+.rule {
+  margin: 0 0 22px;
+  font-size: clamp(1.25rem, 2.4vw, 1.6rem);
+  line-height: 1.25;
+  font-weight: 400;
+  font-variation-settings: "wdth" 110;
+  max-width: 30ch;
+}
+
+/* Actions */
+.actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
+.btn {
+  position: relative;
+  border: 2px solid var(--ink);
+  background: transparent;
+  padding: 14px 22px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 0;
+}
+.btn:disabled { opacity: .35; cursor: not-allowed; }
+.btn-primary {
+  background: var(--ink);
+  color: var(--wall);
+  padding: 18px 30px 22px;
+  font-size: 1.15rem;
+  font-variation-settings: "wdth" 110;
+}
+.btn-primary::after {
+  content: "";
+  position: absolute; left: 0; right: 0; bottom: 0; height: 6px;
+  background: linear-gradient(to right,
+    var(--c0) 0 16.66%, var(--c1) 0 33.33%, var(--c2) 0 50%,
+    var(--c3) 0 66.66%, var(--c4) 0 83.33%, var(--c5) 0);
+  transition: height .2s ease;
+}
+.btn-primary:hover::after { height: 10px; }
+.btn-primary:active { transform: translateY(1px); }
+
+.swatches { display: grid; grid-template-columns: repeat(6, 1fr); height: 18px; margin-top: 16px; max-width: 280px; }
+
+/* Galerie */
+.gallery-col {
+  position: sticky;
+  top: 24px;
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+}
+.gallery-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-top: 2px solid var(--ink); padding-top: 14px; }
+.gallery-head h2 { margin: 0; }
+.count { font-size: 2.4rem; font-weight: 300; line-height: 1; font-variation-settings: "wdth" 62; font-variant-numeric: tabular-nums; }
+.gallery-intro { color: var(--soft); font-size: .92rem; margin: 6px 0 18px; }
+.gallery {
+  list-style: none; margin: 0; padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 18px 14px;
+}
+.g-thumb {
+  display: block; width: 100%; aspect-ratio: 1 / 1;
+  padding: 0; border: 0; background: var(--frame);
+  cursor: pointer; position: relative;
+  outline-offset: 3px;
+}
+.g-thumb svg { display: block; width: 100%; height: 100%; }
+.g-item.active .g-thumb { outline: 3px solid var(--ink); }
+.g-meta { display: flex; justify-content: space-between; align-items: baseline; margin-top: 6px; font-size: .82rem; }
+.g-meta span { font-weight: 600; font-variant-numeric: tabular-nums; }
+.g-del { border: 0; background: none; padding: 0; color: var(--soft); cursor: pointer; font-size: .8rem; text-decoration: underline; text-underline-offset: 2px; }
+.g-del:hover { color: var(--ink); }
+.g-empty { grid-column: 1 / -1; color: var(--soft); font-size: .95rem; border: 1px dashed var(--hair); padding: 24px 18px; }
+.clear { margin-top: 22px; border: 0; background: none; padding: 0; color: var(--soft); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font-size: .9rem; }
+.clear:hover { color: var(--ink); }
+
+.site-foot { border-top: 1px solid var(--hair); padding: 22px 0 40px; color: var(--soft); font-size: .85rem; }
+.site-foot p { margin: 0; max-width: 80ch; }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .gallery-col { position: static; max-height: none; overflow: visible; }
+  .masthead { grid-template-columns: 1fr; }
+  .artist { text-align: left; }
+}
+</style>
+</head>
+<body>
+
+<div class="chroma" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+
+<div class="wrap">
+  <header class="masthead">
+    <h1>Six bandes<span class="line2">horizontales</span></h1>
+    <p class="artist"><strong>Richard Paul Lohse</strong><span>1902–1988, Suisse<br>Art concret, Zurich</span></p>
+  </header>
+
+  <main class="layout">
+    <div class="main-col">
+
+      <section aria-labelledby="t-oeuvre">
+        <h2 id="t-oeuvre">L’œuvre</h2>
+        <figure style="margin:0">
+          <div class="square" id="original">
+            <img src="lohse.png" alt="Richard Paul Lohse, Six bandes horizontales comportant chacune six groupes de couleurs formellement égaux, 1950–1969. Grille de rectangles verticaux aux couleurs vives, répartis en six bandes horizontales." onerror="this.parentElement.classList.add('missing')">
+            <div class="missing-note"><p>Image introuvable. Placez le fichier <code>lohse.png</code> à côté de <code>index.html</code> dans le dépôt.</p></div>
+          </div>
+          <figcaption class="cartel">
+            <p class="title">Sechs horizontale Bänder mit je sechs formal gleichen Farbgruppen
+              <em>Six bandes horizontales comportant chacune six groupes de couleurs formellement égaux</em></p>
+            <dl class="facts">
+              <dt>Dates</dt><dd>1950–1969</dd>
+              <dt>Technique</dt><dd>Huile sur toile</dd>
+              <dt>Dimensions</dt><dd>126 × 126 cm</dd>
+              <dt>Acquisition</dt><dd>Achat, 1977</dd>
+              <dt>Inventaire</dt><dd>AM 1977-569</dd>
+            </dl>
+          </figcaption>
+        </figure>
+
+        <blockquote>
+          « La forme anonyme aspire à l’infini et à l’absolu. Cette forme d’expression que l’on peut appeler, dans un sens très large, constructive, est un art démocratique. »
+          <footer>Richard Paul Lohse</footer>
+        </blockquote>
+
+        <p class="prose">Membre du groupe zurichois de l’Art concret, Lohse développe à partir des années 1940 une abstraction rigoureuse fondée sur un schéma coloré strictement orthogonal. Modulaire et sérielle, l’œuvre est l’application exacte du système énoncé par son titre.</p>
+        <p class="prose">Elle appartient à une série de quatre peintures portant le même titre. Mathématique, géométrique, sérielle : le tableau n’est pas une composition inventée à l’œil, c’est une règle rendue visible. Et une règle peut être appliquée de nouveau.</p>
+      </section>
+
+      <section aria-labelledby="t-proto">
+        <h2 id="t-proto">Le protocole, appliqué ici</h2>
+        <p class="rule">Six bandes horizontales comportant chacune six groupes de couleurs formellement égaux.</p>
+
+        <figure style="margin:0">
+          <div class="square" id="stage" aria-live="polite">
+            <div class="empty-note"><p>Ce carré attend une application du protocole.</p></div>
+          </div>
+          <figcaption class="cartel" id="genCartel"></figcaption>
+        </figure>
+
+        <div class="actions">
+          <button class="btn btn-primary" id="generate" type="button">Appliquer le protocole</button>
+          <button class="btn" id="download" type="button" disabled>Télécharger en PNG</button>
+        </div>
+
+        <p class="prose">À chaque application, le système tire un module (les largeurs relatives des bandes verticales d’un groupe), une gamme de six couleurs et une règle de permutation. Les six groupes de chaque bande ont toujours la même forme ; seules les couleurs circulent.</p>
+      </section>
+    </div>
+
+    <aside class="gallery-col" aria-labelledby="t-gal">
+      <div class="gallery-head">
+        <h2 id="t-gal">Galerie</h2>
+        <span class="count" id="count" aria-label="Nombre de variations">0</span>
+      </div>
+      <p class="gallery-intro">Chaque variation générée est conservée ici, dans ce navigateur. Cliquez sur une miniature pour la revoir en grand.</p>
+      <ol class="gallery" id="gallery"></ol>
+      <button class="clear" id="clear" type="button" hidden>Vider la galerie</button>
+    </aside>
+  </main>
+
+  <footer class="site-foot">
+    <p>Site d’étude autour d’une œuvre de Richard Paul Lohse. Les variations sont produites par un programme qui suit le protocole énoncé dans le titre du tableau ; elles ne sont pas des œuvres de l’artiste.</p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORE = "lohse-protocole-galerie-v1";
+  var COUNTER = "lohse-protocole-compteur-v1";
+
+  /* ---------- Hasard reproductible : une graine = une variation ---------- */
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function pick(r, arr) { return arr[Math.floor(r() * arr.length)]; }
+  function rint(r, a, b) { return a + Math.floor(r() * (b - a + 1)); }
+  function shuffle(arr, r) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(r() * (i + 1)); var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+  function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
+  function hex(h, s, l) {
+    h = ((h % 360) + 360) % 360; s = clamp(s, 0, 100) / 100; l = clamp(l, 0, 100) / 100;
+    var a = s * Math.min(l, 1 - l);
+    function f(n) { var k = (n + h / 30) % 12; return l - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1))); }
+    function to(x) { return Math.round(x * 255).toString(16).padStart(2, "0"); }
+    return "#" + to(f(0)) + to(f(8)) + to(f(4));
+  }
+  function six(fn) { var out = []; for (var i = 0; i < 6; i++) out.push(fn(i)); return out; }
+
+  /* ---------- Gammes : six couleurs, toujours ---------- */
+  var GAMMES = [
+    { name: "Spectre", make: function (r) {
+      var b = r() * 360;
+      return six(function (i) { return hex(b + i * 60 + (r() - .5) * 16, 68 + r() * 24, 44 + r() * 14); });
+    } },
+    { name: "Accord chaud", make: function (r) {
+      var b = -25 + r() * 30;
+      return six(function (i) { return hex(b + i * 13 + (r() - .5) * 6, 72 + r() * 22, 34 + i * 7 + (r() - .5) * 6); });
+    } },
+    { name: "Accord froid", make: function (r) {
+      var b = 150 + r() * 40;
+      return six(function (i) { return hex(b + i * 21 + (r() - .5) * 8, 45 + r() * 40, 26 + i * 8 + (r() - .5) * 6); });
+    } },
+    { name: "Complémentaires", make: function (r) {
+      var b = r() * 360, hs = [b, b + 180, b + 35, b + 215, b + 70, b + 250];
+      return six(function (i) { return hex(hs[i] + (r() - .5) * 10, 65 + r() * 30, 40 + r() * 20); });
+    } },
+    { name: "Triade en deux valeurs", make: function (r) {
+      var b = r() * 360;
+      return six(function (i) { return hex(b + Math.floor(i / 2) * 120, 60 + r() * 30, i % 2 ? 66 + r() * 8 : 32 + r() * 8); });
+    } },
+    { name: "Monochrome gradué", ordered: true, make: function (r) {
+      var h = r() * 360, s = 35 + r() * 50;
+      return six(function (i) { return hex(h + (r() - .5) * 8, s, 16 + i * 13.5); });
+    } },
+    { name: "Pastel", make: function (r) {
+      var b = r() * 360;
+      return six(function (i) { return hex(b + i * 60 + (r() - .5) * 20, 45 + r() * 30, 72 + r() * 12); });
+    } },
+    { name: "Nocturne", make: function (r) {
+      var b = r() * 360;
+      return six(function (i) { return hex(b + i * 60 + (r() - .5) * 20, 40 + r() * 35, 16 + r() * 24); });
+    } }
+  ];
+
+  /* ---------- Règles de permutation des couleurs ----------
+     b = n° de bande, g = n° de groupe, s = position dans le groupe, c = n° de colonne */
+  var REGLES = [
+    { name: "Rotation diagonale", make: function (r) {
+      var p = pick(r, [1, 5]), q = rint(r, 1, 5);
+      return { desc: "c × " + p + " + b × " + q + " (mod 6)", f: function (b, g, s, c) { return c * p + b * q; } };
+    } },
+    { name: "Décalage par groupe", make: function (r) {
+      var m = rint(r, 1, 5), n = pick(r, [1, 5]), q = rint(r, 1, 5);
+      return { desc: "g × " + m + " + s × " + n + " + b × " + q + " (mod 6)", f: function (b, g, s) { return g * m + s * n + b * q; } };
+    } },
+    { name: "Miroir alterné", make: function (r) {
+      var p = pick(r, [1, 5]), q = rint(r, 1, 5);
+      return { desc: "bandes impaires lues à rebours, décalage " + q, f: function (b, g, s, c, N) { return (b % 2 ? (N - 1 - c) : c) * p + b * q; } };
+    } },
+    { name: "Contrepoint", make: function (r) {
+      var p = pick(r, [1, 5]), q = rint(r, 1, 5);
+      return { desc: "s × " + p + " + (b + g) × " + q + " (mod 6)", f: function (b, g, s) { return s * p + (b + g) * q; } };
+    } }
+  ];
+
+  function build(f, k) {
+    var N = 6 * k, grid = [];
+    for (var b = 0; b < 6; b++) {
+      var row = [];
+      for (var g = 0; g < 6; g++) for (var s = 0; s < k; s++) {
+        var c = g * k + s;
+        row.push(((f(b, g, s, c, N) % 6) + 6) % 6);
+      }
+      grid.push(row);
+    }
+    return grid;
+  }
+  // Deux bandes de même couleur ne doivent jamais se toucher
+  function valid(grid) {
+    for (var b = 0; b < grid.length; b++) for (var c = 0; c < grid[b].length; c++) {
+      if (c > 0 && grid[b][c] === grid[b][c - 1]) return false;
+      if (b > 0 && grid[b][c] === grid[b - 1][c]) return false;
+    }
+    return true;
+  }
+
+  function compose(seed) {
+    var r = mulberry32(seed);
+    var k = pick(r, [2, 3, 3, 4]);
+    var w;
+    do { w = []; for (var i = 0; i < k; i++) w.push(rint(r, 1, 4)); } while (new Set(w).size < 2);
+    var gamme = pick(r, GAMMES);
+    var pal = gamme.make(r);
+    if (!gamme.ordered) shuffle(pal, r);
+
+    var rule = null, grid = null;
+    for (var t = 0; t < 60 && !grid; t++) {
+      var R = pick(r, REGLES), inst = R.make(r), gr = build(inst.f, k);
+      if (valid(gr)) { grid = gr; rule = { name: R.name, desc: inst.desc }; }
+    }
+    if (!grid) {
+      grid = build(function (b, g, s, c) { return c + b * 2; }, k);
+      rule = { name: "Rotation diagonale", desc: "c × 1 + b × 2 (mod 6)" };
+    }
+    return { seed: seed, k: k, w: w, gamme: gamme.name, pal: pal, rule: rule, grid: grid };
+  }
+
+  /* ---------- Rendu SVG ---------- */
+  function toSVG(comp, opts) {
+    opts = opts || {};
+    var S = 1000, bandH = S / 6;
+    var total = 0; comp.w.forEach(function (x) { total += x; });
+    var unit = S / (6 * total);
+    var size = opts.size ? ' width="' + opts.size + '" height="' + opts.size + '"' : "";
+    var out = ['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" preserveAspectRatio="none" shape-rendering="crispEdges"' + size + (opts.build ? ' class="build"' : "") + ' role="img" aria-label="Variation générée selon le protocole">'];
+    for (var b = 0; b < 6; b++) {
+      var x = 0;
+      for (var c = 0; c < comp.grid[b].length; c++) {
+        var wd = comp.w[c % comp.k] * unit;
+        var style = opts.build ? ' style="--d:' + (b * 110 + c * 16) + 'ms"' : "";
+        out.push('<rect x="' + x.toFixed(2) + '" y="' + (b * bandH).toFixed(2) + '" width="' + (wd + .6).toFixed(2) + '" height="' + (bandH + .6).toFixed(2) + '" fill="' + comp.pal[comp.grid[b][c]] + '"' + style + '/>');
+        x += wd;
+      }
+    }
+    out.push("</svg>");
+    return out.join("");
+  }
+
+  /* ---------- Stockage local ---------- */
+  function load() {
+    try { var v = JSON.parse(localStorage.getItem(STORE)); return Array.isArray(v) ? v : []; }
+    catch (e) { return []; }
+  }
+  function save() { try { localStorage.setItem(STORE, JSON.stringify(list)); } catch (e) {} }
+  function nextNo() {
+    var n = 0;
+    try { n = parseInt(localStorage.getItem(COUNTER), 10) || 0; } catch (e) {}
+    list.forEach(function (e) { if (e.no > n) n = e.no; });
+    n += 1;
+    try { localStorage.setItem(COUNTER, String(n)); } catch (e) {}
+    return n;
+  }
+
+  /* ---------- Interface ---------- */
+  var $ = function (s) { return document.querySelector(s); };
+  var stage = $("#stage"), cartel = $("#genCartel"), gal = $("#gallery"), countEl = $("#count");
+  var list = load();
+  var current = null;
+  var cache = {};
+  function comp(seed) { return cache[seed] || (cache[seed] = compose(seed)); }
+  function pad(n) { return String(n).padStart(3, "0"); }
+  function dateFr(t) {
+    try { return new Date(t).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }); }
+    catch (e) { return ""; }
+  }
+
+  function setChroma(pal) {
+    var root = document.documentElement;
+    pal.forEach(function (c, i) { root.style.setProperty("--c" + i, c); });
+  }
+
+  function renderCartel(entry, cpt) {
+    cartel.innerHTML =
+      '<p class="title">Variation n° ' + pad(entry.no) + '<em>D’après le protocole de Richard Paul Lohse' + (entry.t ? ", générée le " + dateFr(entry.t) : "") + '</em></p>' +
+      '<dl class="facts">' +
+        '<dt>Module</dt><dd>' + cpt.w.join(" : ") + '<small>' + cpt.k + ' bandes verticales par groupe, 6 groupes par bande</small></dd>' +
+        '<dt>Règle</dt><dd>' + cpt.rule.name + '<small>' + cpt.rule.desc + '</small></dd>' +
+        '<dt>Gamme</dt><dd>' + cpt.gamme + '</dd>' +
+        '<dt>Graine</dt><dd>' + cpt.seed.toString(16).padStart(8, "0") + '</dd>' +
+      '</dl>' +
+      '<div class="swatches" aria-hidden="true">' + cpt.pal.map(function (c) { return '<span style="background:' + c + '" title="' + c + '"></span>'; }).join("") + '</div>';
+  }
+
+  function show(entry, animate) {
+    var cpt = comp(entry.seed);
+    current = entry;
+    stage.innerHTML = toSVG(cpt, { build: animate });
+    stage.classList.add("filled");
+    renderCartel(entry, cpt);
+    setChroma(cpt.pal);
+    $("#download").disabled = false;
+    markActive();
+  }
+
+  function markActive() {
+    gal.querySelectorAll(".g-item").forEach(function (li) {
+      li.classList.toggle("active", !!current && +li.dataset.seed === current.seed);
+    });
+  }
+
+  function renderGallery() {
+    countEl.textContent = list.length;
+    $("#clear").hidden = list.length === 0;
+    if (!list.length) {
+      gal.innerHTML = '<li class="g-empty">Aucune variation pour l’instant. Appliquez le protocole pour commencer la collection.</li>';
+      return;
+    }
+    gal.innerHTML = list.map(function (e) {
+      return '<li class="g-item" data-seed="' + e.seed + '">' +
+        '<button class="g-thumb" type="button" data-act="show" data-seed="' + e.seed + '" aria-label="Afficher la variation n° ' + pad(e.no) + '">' + toSVG(comp(e.seed)) + '</button>' +
+        '<div class="g-meta"><span>n° ' + pad(e.no) + '</span>' +
+        '<button class="g-del" type="button" data-act="del" data-seed="' + e.seed + '" aria-label="Retirer la variation n° ' + pad(e.no) + '">Retirer</button></div>' +
+      '</li>';
+    }).join("");
+    markActive();
+  }
+
+  $("#generate").addEventListener("click", function () {
+    var seed = (Math.random() * 4294967296) >>> 0;
+    var entry = { no: nextNo(), seed: seed, t: Date.now() };
+    list.unshift(entry);
+    save();
+    renderGallery();
+    show(entry, true);
+  });
+
+  gal.addEventListener("click", function (ev) {
+    var btn = ev.target.closest("button[data-act]");
+    if (!btn) return;
+    var seed = +btn.dataset.seed;
+    var entry = list.find(function (x) { return x.seed === seed; });
+    if (!entry) return;
+    if (btn.dataset.act === "show") {
+      show(entry, true);
+      if (window.matchMedia("(max-width: 900px)").matches) stage.scrollIntoView({ behavior: "smooth", block: "center" });
+    } else {
+      list = list.filter(function (x) { return x.seed !== seed; });
+      save();
+      renderGallery();
+    }
+  });
+
+  $("#clear").addEventListener("click", function () {
+    if (!window.confirm("Retirer toutes les variations de la galerie ?")) return;
+    list = [];
+    save();
+    renderGallery();
+  });
+
+  $("#download").addEventListener("click", function () {
+    if (!current) return;
+    var cpt = comp(current.seed), size = 2000;
+    var img = new Image();
+    img.onload = function () {
+      var cv = document.createElement("canvas");
+      cv.width = cv.height = size;
+      cv.getContext("2d").drawImage(img, 0, 0, size, size);
+      cv.toBlob(function (blob) {
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "lohse-protocole-variation-" + pad(current.no) + ".png";
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 1500);
+      }, "image/png");
+    };
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(toSVG(cpt, { size: size }));
+  });
+
+  renderGallery();
+  if (list.length) show(list[0], false);
+})();
+</script>
+</body>
+</html>
